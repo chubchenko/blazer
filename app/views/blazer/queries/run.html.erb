@@ -145,7 +145,7 @@
         <% elsif @columns == ["PLAN"] && @data_source.adapter == "druid" %>
           <pre><code><%= @rows[0][0] %></code></pre>
         <% else %>
-          <table class="table results-table" style="margin-bottom: 0;">
+          <table class="table results-table">
             <thead>
               <tr>
                 <% @columns.each_with_index do |key, i| %>
