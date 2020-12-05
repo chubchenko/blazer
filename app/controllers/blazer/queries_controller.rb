@@ -432,9 +432,9 @@ module Blazer
             unless @cohort_error
               column_types = @result.columns.zip(@result.column_types).to_h
 
-              if column_types["cohort_time"] != "time"
+              if !column_types["cohort_time"].in?(["time", nil])
                 @cohort_error = "cohort_time must be time column"
-              elsif column_types["conversion_time"] != "time"
+              elsif !column_types["conversion_time"].in?(["time", nil])
                 @cohort_error = "conversion_time must be time column"
               end
             end
@@ -442,7 +442,7 @@ module Blazer
         else
           @min_cohort_date, @max_cohort_date = @result.rows.map { |r| r[0] }.minmax
           @buckets = @result.rows.map { |r| [[r[0], r[1]], r[2]] }.to_h
-          @today = Time.current.in_time_zone(Blazer.time_zone).to_date
+          @today = Blazer.time_zone.today
 
           @cohort_dates = []
           current_date = @max_cohort_date
