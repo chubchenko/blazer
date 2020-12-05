@@ -41,9 +41,9 @@ module Blazer
       end
 
       if @queries.any? { |q| q.cohort_analysis? }
-        @bind_vars << "period" unless @bind_vars.include?("period")
-        @smart_vars["period"] = ["day", "week", "month"]
-        params[:period] ||= "week"
+        @bind_vars << "cohort_period" unless @bind_vars.include?("cohort_period")
+        @smart_vars["cohort_period"] = ["day", "week", "month"]
+        params[:cohort_period] ||= "week"
       end
     end
 
