@@ -273,7 +273,7 @@ module Blazer
           end
         end
 
-        render_cohort_analysis if @cohort_analysis
+        render_cohort_analysis if @cohort_analysis && !@error
 
         respond_to do |format|
           format.html do
