@@ -84,7 +84,7 @@ module Blazer
     def run
       @statement = params[:statement]
       # before process_vars
-      @cohort_analysis = /cohort analysis/i.match?(@statement)
+      @cohort_analysis = Query.new(statement: @statement).cohort_analysis?
       data_source = params[:data_source]
       process_vars(@statement, data_source)
       @only_chart = params[:only_chart]
