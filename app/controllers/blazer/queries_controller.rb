@@ -371,6 +371,8 @@ module Blazer
 
         unless @show_cohort_rows
           @cohort_period = params["cohort_period"] || "week"
+          @cohort_period = "week" unless ["day", "week", "month"].include?(@cohort_period)
+
           @cohort_days =
             case @cohort_period
             when "day"
