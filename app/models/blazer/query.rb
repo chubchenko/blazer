@@ -41,7 +41,7 @@ module Blazer
     end
 
     def cohort_analysis?
-      /cohort analysis/i.match?(statement)
+      /\/\*\s*cohort analysis\s*\*\//i.match?(statement)
     end
   end
 end
