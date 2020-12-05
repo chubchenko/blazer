@@ -446,8 +446,7 @@ module Blazer
 
             num_cols.times do |i|
               if @today >= date + (@cohort_days * i)
-                num = @buckets[[date, i + 1]] || 0
-                row << num
+                row << (@buckets[[date, i + 1]] || 0)
               end
             end
 
