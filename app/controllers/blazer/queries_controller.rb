@@ -361,9 +361,7 @@ module Blazer
       end
 
       def run_cohort_analysis
-        # check data source is Postgres
-        adapter_instance = @data_source.send(:adapter_instance)
-        unless adapter_instance.is_a?(Blazer::Adapters::SqlAdapter) && adapter_instance.send(:postgresql?)
+        unless @data_source.supports_cohort_analysis?
           @cohort_error = "Cohort analysis requires Postgres"
         end
 
@@ -382,36 +380,8 @@ module Blazer
             when "month"
               30
             end
-          bucket_seconds = @cohort_days.days.to_i
 
-          # TODO treat date columns as already in time zone
-          statement = <<~SQL
-            WITH cohorts AS (
-              SELECT user_id, MIN(cohort_time) AS cohort_time FROM (
-                #{@statement}
-              ) t1 GROUP BY 1
-            ),
-            buckets AS (
-              SELECT t2.user_id, CEIL(EXTRACT(EPOCH FROM t2.conversion_time - cohorts.cohort_time) / ?)::int AS bucket FROM (
-                #{@statement}
-              ) t2 INNER JOIN cohorts ON cohorts.user_id = t2.user_id
-              WHERE t2.conversion_time IS NOT NULL
-            )
-            SELECT
-              date_trunc(?, cohorts.cohort_time::timestamptz AT TIME ZONE ?)::date AS period,
-              0 AS bucket,
-              COUNT(DISTINCT cohorts.user_id)
-            FROM cohorts GROUP BY 1
-            UNION ALL
-            SELECT
-              date_trunc(?, cohorts.cohort_time::timestamptz AT TIME ZONE ?)::date AS period,
-              bucket,
-              COUNT(DISTINCT buckets.user_id)
-            FROM cohorts INNER JOIN buckets ON buckets.user_id = cohorts.user_id GROUP BY 1, 2
-          SQL
-          tzname = Blazer.time_zone.tzinfo.name
-          sanitize_params = [statement, bucket_seconds, @cohort_period, tzname, @cohort_period, tzname]
-          @statement = adapter_instance.connection_model.send(:sanitize_sql_array, sanitize_params)
+          @statement = @data_source.cohort_analysis_statement(@statement, period: @cohort_period, days: @cohort_days)
         end
       end
 

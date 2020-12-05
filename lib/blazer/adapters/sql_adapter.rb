@@ -122,6 +122,43 @@ module Blazer
         !%w[CREATE ALTER UPDATE INSERT DELETE].include?(statement.split.first.to_s.upcase)
       end
 
+      def supports_cohort_analysis?
+        postgresql?
+      end
+
+      # TODO treat date columns as already in time zone
+      def cohort_analysis_statement(statement, period:, days:)
+        raise "Cohort analysis not supported" unless supports_cohort_analysis?
+
+        statement = <<~SQL
+          WITH cohorts AS (
+            SELECT user_id, MIN(cohort_time) AS cohort_time FROM (
+              #{statement}
+            ) t1 GROUP BY 1
+          ),
+          buckets AS (
+            SELECT t2.user_id, CEIL(EXTRACT(EPOCH FROM t2.conversion_time - cohorts.cohort_time) / ?)::int AS bucket FROM (
+              #{statement}
+            ) t2 INNER JOIN cohorts ON cohorts.user_id = t2.user_id
+            WHERE t2.conversion_time IS NOT NULL
+          )
+          SELECT
+            date_trunc(?, cohorts.cohort_time::timestamptz AT TIME ZONE ?)::date AS period,
+            0 AS bucket,
+            COUNT(DISTINCT cohorts.user_id)
+          FROM cohorts GROUP BY 1
+          UNION ALL
+          SELECT
+            date_trunc(?, cohorts.cohort_time::timestamptz AT TIME ZONE ?)::date AS period,
+            bucket,
+            COUNT(DISTINCT buckets.user_id)
+          FROM cohorts INNER JOIN buckets ON buckets.user_id = cohorts.user_id GROUP BY 1, 2
+        SQL
+        tzname = Blazer.time_zone.tzinfo.name
+        params = [statement, days.to_i * 86400, period, tzname, period, tzname]
+        connection_model.send(:sanitize_sql_array, params)
+      end
+
       protected
 
       def select_all(statement, params = [])
