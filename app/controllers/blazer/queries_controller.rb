@@ -363,7 +363,7 @@ module Blazer
 
       def run_cohort_analysis
         unless @data_source.supports_cohort_analysis?
-          @cohort_error = "Cohort analysis requires Postgres"
+          @cohort_error = "This data source does not support cohort analysis"
         end
 
         @show_cohort_rows = !params[:query_id] || @cohort_error
