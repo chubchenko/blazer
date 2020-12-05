@@ -16,7 +16,7 @@
       </tr>
     </thead>
     <tbody>
-      <% @rows.zip(@cohort_dates) do |row, date| %>
+      <% @rows.each do |row| %>
         <tr>
           <td><%= row[0] %></td>
           <td style="text-align: right;"><%= row[1] %></td>
@@ -24,8 +24,8 @@
             <td style="text-align: right;">
               <% num = row[i + 2] %>
               <% if num %>
-                <% denom = @buckets[[date, 0]] || 0 %>
-                <% if denom > 0 #&& today > current_date + (7 * (j + 1)) %>
+                <% denom = row[1] %>
+                <% if denom > 0 %>
                   <%= (100.0 * num / denom).round %>%
                 <% else %>
                   -
