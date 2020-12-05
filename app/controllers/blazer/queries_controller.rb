@@ -415,9 +415,12 @@ module Blazer
             end
           end
         else
-          @min_cohort_date, @max_cohort_date = @result.rows.map { |r| r[0] }.minmax
-          @buckets = @result.rows.map { |r| [[r[0], r[1]], r[2]] }.to_h
           @today = Blazer.time_zone.today
+          @min_cohort_date, @max_cohort_date = @result.rows.map { |r| r[0] }.minmax
+          @buckets = {}
+          @result.rows.each do |r|
+            @buckets[[r[0], r[1]]] = r[2]
+          end
 
           @cohort_dates = []
           current_date = @max_cohort_date
@@ -429,7 +432,7 @@ module Blazer
                 current_date - 1
               when "week"
                 current_date - 7
-              when "month"
+              else
                 current_date.prev_month
               end
           end
