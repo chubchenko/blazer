@@ -170,6 +170,7 @@ module Blazer
       @statement = @query.statement.dup
       process_vars(@statement, @query.data_source)
       Blazer.transform_statement.call(data_source, @statement) if Blazer.transform_statement
+      @statement = cohort_analysis_statement(data_source, @statement) if @query.cohort_analysis?
       data_source.clear_cache(@statement)
       redirect_to query_path(@query, variable_params(@query))
     end
@@ -368,21 +369,25 @@ module Blazer
         @show_cohort_rows = !params[:query_id] || @cohort_error
 
         unless @show_cohort_rows
-          @cohort_period = params["cohort_period"] || "week"
-          @cohort_period = "week" unless ["day", "week", "month"].include?(@cohort_period)
-
-          @cohort_days =
-            case @cohort_period
-            when "day"
-              1
-            when "week"
-              7
-            when "month"
-              30
-            end
-
-          @statement = @data_source.cohort_analysis_statement(@statement, period: @cohort_period, days: @cohort_days)
+          @statement = cohort_analysis_statement(@data_source, @statement)
         end
+      end
+
+      def cohort_analysis_statement(data_source, statement)
+        @cohort_period = params["cohort_period"] || "week"
+        @cohort_period = "week" unless ["day", "week", "month"].include?(@cohort_period)
+
+        @cohort_days =
+          case @cohort_period
+          when "day"
+            1
+          when "week"
+            7
+          when "month"
+            30
+          end
+
+        data_source.cohort_analysis_statement(statement, period: @cohort_period, days: @cohort_days)
       end
 
       def render_cohort_analysis
