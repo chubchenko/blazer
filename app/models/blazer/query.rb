@@ -37,5 +37,9 @@ module Blazer
     def variables
       Blazer.extract_vars(statement)
     end
+
+    def cohort_analysis?
+      /cohort analysis/i.match?(statement)
+    end
   end
 end

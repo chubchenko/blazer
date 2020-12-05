@@ -102,7 +102,9 @@ module Blazer
 
       # remove unpermitted keys from both params and permitted keys for better sleep
       def variable_params(resource)
-        permitted_keys = resource.variables - UNPERMITTED_KEYS.map(&:to_s)
+        permitted_keys = resource.variables
+        permitted_keys += ["period"] if resource.try(:cohort_analysis?)
+        permitted_keys -= UNPERMITTED_KEYS.map(&:to_s)
         params.except(*UNPERMITTED_KEYS).slice(*permitted_keys).permit!
       end
       helper_method :variable_params

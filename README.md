@@ -25,6 +25,7 @@ Blazer is also available as a [Docker image](https://github.com/ankane/blazer-do
 - [Charts](#charts)
 - [Dashboards](#dashboards)
 - [Checks](#checks)
+- [Cohorts](#cohorts)
 - [Anomaly Detection](#anomaly-detection)
 - [Forecasting](#forecasting)
 - [Uploads](#uploads)
@@ -387,6 +388,20 @@ SELECT * FROM ratings WHERE user_id IS NULL /* all ratings should have a user */
 ```
 
 Then create check with optional emails if you want to be notified. Emails are sent when a check starts failing, and when it starts passing again.
+
+## Cohorts
+
+Blazer has experimental support for creating a cohort analysis from a simple SQL query. [Example](https://blazer.dokkuapp.com/todo)
+
+Create a query with the comment `/* cohort analysis */`. The result should have 3 columns - `user_id`, `cohort_time`, and `conversion_time`.
+
+```sql
+/* cohort analysis */
+SELECT users.id AS user_id, users.created_at AS cohort_time, orders.created_at AS conversion_time
+FROM users LEFT JOIN orders ON orders.user_id = users.id
+```
+
+This feature requires PostgreSQL.
 
 ## Anomaly Detection
 

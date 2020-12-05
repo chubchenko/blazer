@@ -74,6 +74,8 @@ module Blazer
       @query.update!(status: "active") if @query.try(:status) == "archived"
 
       Blazer.transform_statement.call(data_source, @statement) if Blazer.transform_statement
+
+      show_cohort_analysis if @query.cohort_analysis?
     end
 
     def edit
@@ -81,6 +83,8 @@ module Blazer
 
     def run
       @statement = params[:statement]
+      # before process_vars
+      @cohort_analysis = /cohort analysis/i.match?(@statement)
       data_source = params[:data_source]
       process_vars(@statement, data_source)
       @only_chart = params[:only_chart]
@@ -88,6 +92,8 @@ module Blazer
       @query = Query.find_by(id: params[:query_id]) if params[:query_id]
       data_source = @query.data_source if @query && @query.data_source
       @data_source = Blazer.data_sources[data_source]
+
+      run_cohort_analysis if @cohort_analysis
 
       # ensure viewable
       if !(@query || Query.new(data_source: @data_source.id)).viewable?(blazer_user)
@@ -267,6 +273,8 @@ module Blazer
           end
         end
 
+        render_cohort_analysis if @cohort_analysis
+
         respond_to do |format|
           format.html do
             render layout: false
@@ -350,6 +358,129 @@ module Blazer
 
       def blazer_run_id
         params[:run_id].to_s.gsub(/[^a-z0-9\-]/i, "")
+      end
+
+      def run_cohort_analysis
+        # check data source is Postgres
+        adapter_instance = @data_source.send(:adapter_instance)
+        unless adapter_instance.is_a?(Blazer::Adapters::SqlAdapter) && adapter_instance.send(:postgresql?)
+          @cohort_error = "Cohort analysis requires Postgres"
+        end
+
+        @show_cohort_rows = !params[:query_id] || @cohort_error
+
+        unless @show_cohort_rows
+          @cohort_period = params["period"] || "week"
+          @cohort_days =
+            case @cohort_period
+            when "day"
+              1
+            when "week"
+              7
+            when "month"
+              30
+            end
+          bucket_seconds = @cohort_days.days.to_i
+
+          # TODO treat date columns as already in time zone
+          statement = <<~SQL
+            WITH cohorts AS (
+              SELECT user_id, MIN(cohort_time) AS cohort_time FROM (
+                #{@statement}
+              ) t1 GROUP BY 1
+            ),
+            buckets AS (
+              SELECT t2.user_id, CEIL(EXTRACT(EPOCH FROM t2.conversion_time - cohorts.cohort_time) / ?)::int AS bucket FROM (
+                #{@statement}
+              ) t2 INNER JOIN cohorts ON cohorts.user_id = t2.user_id
+              WHERE t2.conversion_time IS NOT NULL
+            )
+            SELECT
+              date_trunc(?, cohorts.cohort_time::timestamptz AT TIME ZONE ?)::date AS period,
+              0 AS bucket,
+              COUNT(DISTINCT cohorts.user_id)
+            FROM cohorts GROUP BY 1
+            UNION ALL
+            SELECT
+              date_trunc(?, cohorts.cohort_time::timestamptz AT TIME ZONE ?)::date AS period,
+              bucket,
+              COUNT(DISTINCT buckets.user_id)
+            FROM cohorts INNER JOIN buckets ON buckets.user_id = cohorts.user_id GROUP BY 1, 2
+          SQL
+          tzname = Blazer.time_zone.tzinfo.name
+          sanitize_params = [statement, bucket_seconds, @cohort_period, tzname, @cohort_period, tzname]
+          @statement = adapter_instance.connection_model.send(:sanitize_sql_array, sanitize_params)
+        end
+      end
+
+      def render_cohort_analysis
+        if @show_cohort_rows
+          @cohort_analysis = false
+
+          @row_limit = 1000
+
+          # check results
+          unless @cohort_error
+            # check names
+            if @result.columns.sort != ["cohort_time", "conversion_time", "user_id"]
+              @cohort_error = "Expected 3 columns: user_id, cohort_time, and conversion_time"
+            end
+
+            # check types (user_id can be any type)
+            unless @cohort_error
+              column_types = @result.columns.zip(@result.column_types).to_h
+
+              if column_types["cohort_time"] != "time"
+                @cohort_error = "cohort_time must be time column"
+              elsif column_types["conversion_time"] != "time"
+                @cohort_error = "conversion_time must be time column"
+              end
+            end
+          end
+        else
+          @min_cohort_date, @max_cohort_date = @result.rows.map { |r| r[0] }.minmax
+          @buckets = @result.rows.map { |r| [[r[0], r[1]], r[2]] }.to_h
+          @today = Time.current.in_time_zone(Blazer.time_zone).to_date
+
+          @cohort_dates = []
+          current_date = @max_cohort_date
+          while current_date >= @min_cohort_date
+            @cohort_dates << current_date
+            current_date =
+              case @cohort_period
+              when "day"
+                current_date - 1
+              when "week"
+                current_date - 7
+              when "month"
+                current_date.prev_month
+              end
+          end
+
+          num_cols = @cohort_dates.size
+          @columns = ["Cohort", "Users"] + num_cols.times.map { |i| i + 1 }
+          rows = []
+          date_format = @cohort_period == "month" ? "%b %Y" : "%b %-e, %Y"
+          @cohort_dates.each do |date|
+            row = [date.strftime(date_format), @buckets[[date, 0]] || 0]
+
+            num_cols.times do |i|
+              if @today >= date + (@cohort_days * i)
+                num = @buckets[[date, i + 1]] || 0
+                row << num
+              end
+            end
+
+            rows << row
+          end
+          @rows = rows
+        end
+      end
+
+      def show_cohort_analysis
+        @bind_vars << "period"
+        @smart_vars["period"] = ["day", "week", "month"]
+        params[:period] ||= "week"
       end
   end
 end
