@@ -39,6 +39,12 @@ module Blazer
           @sql_errors << error if error
         end
       end
+
+      if @queries.any? { |q| q.cohort_analysis? }
+        @bind_vars << "period" unless @bind_vars.include?("period")
+        @smart_vars["period"] = ["day", "week", "month"]
+        params[:period] ||= "week"
+      end
     end
 
     def edit

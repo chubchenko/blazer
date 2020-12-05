@@ -478,7 +478,7 @@ module Blazer
       end
 
       def show_cohort_analysis
-        @bind_vars << "period"
+        @bind_vars << "period" unless @bind_vars.include?("period")
         @smart_vars["period"] = ["day", "week", "month"]
         params[:period] ||= "week"
       end
