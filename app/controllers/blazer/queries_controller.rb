@@ -75,7 +75,7 @@ module Blazer
 
       Blazer.transform_statement.call(data_source, @statement) if Blazer.transform_statement
 
-      show_cohort_analysis if @query.cohort_analysis?
+      add_cohort_analysis_vars if @query.cohort_analysis?
     end
 
     def edit
@@ -452,12 +452,6 @@ module Blazer
           end
           @rows = rows
         end
-      end
-
-      def show_cohort_analysis
-        @bind_vars << "cohort_period" unless @bind_vars.include?("cohort_period")
-        @smart_vars["cohort_period"] = ["day", "week", "month"]
-        params[:cohort_period] ||= "week"
       end
   end
 end
