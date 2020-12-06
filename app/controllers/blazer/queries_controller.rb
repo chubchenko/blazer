@@ -377,6 +377,8 @@ module Blazer
         @cohort_period = params["cohort_period"] || "week"
         @cohort_period = "week" unless ["day", "week", "month"].include?(@cohort_period)
 
+        # for now
+        @conversion_period = @cohort_period
         @cohort_days =
           case @cohort_period
           when "day"
@@ -438,7 +440,7 @@ module Blazer
           end
 
           num_cols = @cohort_dates.size
-          @columns = ["Cohort", "Users"] + num_cols.times.map { |i| i + 1 }
+          @columns = ["Cohort", "Users"] + num_cols.times.map { |i| "#{@conversion_period.titleize} #{i + 1}" }
           rows = []
           date_format = @cohort_period == "month" ? "%b %Y" : "%b %-e, %Y"
           @cohort_dates.each do |date|

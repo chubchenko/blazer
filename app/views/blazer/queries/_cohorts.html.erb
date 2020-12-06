@@ -10,7 +10,7 @@
       <tr>
         <th style="min-width: 100px;">Cohort</th>
         <% 12.times do |i| %>
-          <th style="width: 7.5%; text-align: right;"><%= i + 1 %></th>
+          <th style="width: 7.5%; text-align: right;"><%= @conversion_period.titleize %> <%= i + 1 %></th>
         <% end %>
       </tr>
     </thead>
