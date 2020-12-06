@@ -420,13 +420,13 @@ module Blazer
           @today = Blazer.time_zone.today
           @min_cohort_date, @max_cohort_date = @result.rows.map { |r| r[0] }.minmax
           @buckets = {}
-          @result.rows.each do |r|
+          @rows.each do |r|
             @buckets[[r[0], r[1]]] = r[2]
           end
 
           @cohort_dates = []
           current_date = @max_cohort_date
-          while current_date >= @min_cohort_date
+          while current_date && current_date >= @min_cohort_date
             @cohort_dates << current_date
             current_date =
               case @cohort_period
