@@ -136,7 +136,7 @@ module Blazer
             #{statement}
           ),
           cohorts AS (
-             SELECT user_id, MIN(cohort_time) AS cohort_time FROM query GROUP BY 1
+            SELECT user_id, MIN(cohort_time) AS cohort_time FROM query GROUP BY 1
           )
           SELECT
             date_trunc(?, cohorts.cohort_time::timestamptz AT TIME ZONE ?)::date AS period,
