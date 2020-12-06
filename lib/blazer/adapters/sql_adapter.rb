@@ -130,17 +130,13 @@ module Blazer
       def cohort_analysis_statement(statement, period:, days:)
         raise "Cohort analysis not supported" unless supports_cohort_analysis?
 
+        # WITH not an optimization fence in Postgres 12+
         statement = <<~SQL
-          WITH cohorts AS (
-            SELECT user_id, MIN(cohort_time) AS cohort_time FROM (
-              #{statement}
-            ) t1 GROUP BY 1
+          WITH query AS (
+            #{statement}
           ),
-          buckets AS (
-            SELECT t2.user_id, CEIL(EXTRACT(EPOCH FROM t2.conversion_time - cohorts.cohort_time) / ?)::int AS bucket FROM (
-              #{statement}
-            ) t2 INNER JOIN cohorts ON cohorts.user_id = t2.user_id
-            WHERE t2.conversion_time IS NOT NULL
+          cohorts AS (
+             SELECT user_id, MIN(cohort_time) AS cohort_time FROM query GROUP BY 1
           )
           SELECT
             date_trunc(?, cohorts.cohort_time::timestamptz AT TIME ZONE ?)::date AS period,
@@ -150,12 +146,14 @@ module Blazer
           UNION ALL
           SELECT
             date_trunc(?, cohorts.cohort_time::timestamptz AT TIME ZONE ?)::date AS period,
-            bucket,
-            COUNT(DISTINCT buckets.user_id)
-          FROM cohorts INNER JOIN buckets ON buckets.user_id = cohorts.user_id GROUP BY 1, 2
+            CEIL(EXTRACT(EPOCH FROM query.conversion_time - cohorts.cohort_time) / ?)::int AS bucket,
+            COUNT(DISTINCT query.user_id)
+          FROM cohorts INNER JOIN query ON query.user_id = cohorts.user_id
+          WHERE query.conversion_time IS NOT NULL
+          GROUP BY 1, 2
         SQL
         tzname = Blazer.time_zone.tzinfo.name
-        params = [statement, days.to_i * 86400, period, tzname, period, tzname]
+        params = [statement, period, tzname, period, tzname, days.to_i * 86400]
         connection_model.send(:sanitize_sql_array, params)
       end
 
